@@ -174,20 +174,36 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     if (!existing) {
       return res.status(404).json({ success: false, message: '用例不存在' });
     }
-    // 权限校验
+    
+    // 权限校验（保持不变）
     if (!await checkBusinessPermission(req.user, existing.business)) {
       return res.status(403).json({ success: false, message: '您没有权限修改该用例' });
     }
-    // 如果更新请求中包含了 business 字段，也需要校验新业务权限
     if (req.body.business && req.body.business !== existing.business) {
       if (!await checkBusinessPermission(req.user, req.body.business)) {
         return res.status(403).json({ success: false, message: '您没有新业务的修改权限' });
       }
     }
 
-    const testCase = await TestCase.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // 关键：创建更新数据的副本，并删除不允许修改的字段
+    const updateData = { ...req.body };
+    delete updateData._id;
+    delete updateData.__v;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+    delete updateData.creator;      // 禁止更新 creator
+    delete updateData.creatorName;  // 禁止更新 creatorName
+
+    // 使用 returnDocument: 'after' 替代 new: true
+    const testCase = await TestCase.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { returnDocument: 'after' }
+    );
+    
     res.json({ success: true, data: testCase });
   } catch (error: any) {
+    console.error('更新失败，详细信息：', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

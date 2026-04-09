@@ -110,4 +110,31 @@ router.put('/:id/businesses', authMiddleware, async (req: AuthRequest, res: Resp
   }
 });
 
+// GET /api/businesses/mine - 获取当前用户拥有的业务列表
+router.get('/mine', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    // 获取用户有权限的业务名称列表
+    let allowedBusinessNames: string[];
+    if (req.user!.role === 'admin') {
+      // 管理员返回所有业务
+      const allBiz = await Business.find().select('name');
+      allowedBusinessNames = allBiz.map(b => b.name);
+    } else {
+      // 普通用户：合并 User.businesses 和 Business.assignedUsers
+      const assignedBiz = await Business.find({ assignedUsers: req.user!.id }).select('name');
+      const assignedNames = assignedBiz.map(b => b.name);
+      allowedBusinessNames = [...new Set([...req.user!.businesses, ...assignedNames])];
+    }
+
+    // 根据业务名称查询对应的 _id 和 name
+    const businesses = await Business.find({ name: { $in: allowedBusinessNames } })
+      .select('_id name')
+      .sort({ name: 1 });
+
+    res.json({ success: true, data: businesses });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;
