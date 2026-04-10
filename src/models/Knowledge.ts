@@ -6,7 +6,7 @@ const ImageSchema = new Schema({
 }, { _id: false });
 
 const FixStepSchema = new Schema({
-  type: { type: String, enum: ['click', 'input', 'swipe', 'wait', 'scroll', 'longPress'], required: true },
+  type: { type: String, enum: ['click', 'swipe', 'wait'], required: true },
   prompt: String,
   images: [ImageSchema],
   waitDuration: Number,
@@ -24,7 +24,7 @@ const PreconditionSchema = new Schema({
 const StepSchema = new Schema({
   inputType: {
     type: String,
-    enum: ['click', 'input', 'swipe', 'wait', 'assert', 'if', 'scroll', 'longPress'],
+    enum: ['click', 'input', 'swipe', 'wait', 'assert', 'if', 'plan'],
     required: true,
   },
   prompt: String,

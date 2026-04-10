@@ -56,13 +56,17 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
 router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const { name, business, description, steps } = req.body;
-    if (!name || !business) return res.status(400).json({ success: false, message: '名称和业务不能为空' });
+    if (!name || !business) {
+      return res.status(400).json({ success: false, message: '名称和业务不能为空' });
+    }
 
     const knowledge = await Knowledge.create({
       name, business, description: description || '', steps: steps || [],
       creator: req.user!.id, creatorName: req.user!.username,
     });
-    res.status(201).json({ success: true, data: knowledge });
+
+    // 修改：只返回 success 和 message，不返回 data
+    res.status(201).json({ success: true, message: '创建成功' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

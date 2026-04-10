@@ -8,7 +8,7 @@ const ImageSchema = new Schema({
 
 // 前置条件修复步骤
 const FixStepSchema = new Schema({
-  type: { type: String, enum: ['click', 'input', 'swipe', 'wait', 'scroll', 'longPress'], required: true },
+  type: { type: String, enum: ['click', 'swipe', 'wait'], required: true },
   prompt: String,
   images: [ImageSchema],
   waitDuration: Number,
@@ -28,7 +28,7 @@ const PreconditionSchema = new Schema({
 const AutomationStepSchema = new Schema({
   inputType: {
     type: String,
-    enum: ['click', 'input', 'swipe', 'wait', 'assert', 'if', 'scroll', 'longPress'],
+    enum: ['click', 'input', 'swipe', 'wait', 'assert', 'if', 'plan'],
     required: true,
   },
   prompt: String,
