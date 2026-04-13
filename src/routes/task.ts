@@ -45,13 +45,12 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
 // POST /api/tasks
 router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const { name, business, testCases } = req.body;
-    if (!name || !business || !testCases?.length) {
-      return res.status(400).json({ success: false, message: '名称、业务和用例不能为空' });
+    const { name, business, platform, testCases } = req.body;  // 增加 platform
+    if (!name || !business || !platform || !testCases?.length) {
+      return res.status(400).json({ success: false, message: '名称、业务、运行端和用例不能为空' });
     }
-
     const task = await Task.create({
-      name, business, testCases,
+      name, business, platform, testCases,
       progress: { total: testCases.length, completed: 0, failed: 0, current: 0 },
       creator: req.user!.id, creatorName: req.user!.username,
     });
@@ -89,68 +88,6 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) =>
     res.status(500).json({ success: false, message: error.message });
   }
 });
-
-// POST /api/tasks/:id/execute - mock执行
-router.post('/:id/execute', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const task = await Task.findById(req.params.id).populate('testCases', 'testCase');
-    if (!task) return res.status(404).json({ success: false, message: '任务不存在' });
-    if (task.status === 'running') return res.status(400).json({ success: false, message: '任务已在运行中' });
-
-    // 创建执行记录
-    const records = (task.testCases as any[]).map(tc => ({
-      taskId: task._id,
-      testCaseId: tc._id,
-      testCaseName: tc.testCase,
-      status: 'pending',
-    }));
-    await TaskRecord.insertMany(records);
-
-    // 更新任务状态
-    task.status = 'running';
-    task.progress = { total: task.testCases.length, completed: 0, failed: 0, current: 0 };
-    await task.save();
-
-    // Mock: 模拟异步执行进度
-    simulateExecution(task._id as unknown as string);
-
-    res.json({ success: true, message: '任务已开始执行' });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Mock执行模拟
-// async function simulateExecution(taskId: string) {
-//   const records = await TaskRecord.find({ taskId }).sort({ createdAt: 1 });
-//   for (let i = 0; i < records.length; i++) {
-//     await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 4000));
-
-//     const task = await Task.findById(taskId);
-//     if (!task || task.status === 'cancelled') break;
-
-//     const passed = Math.random() > 0.2;
-//     records[i].status = passed ? 'passed' : 'failed';
-//     records[i].startTime = new Date(Date.now() - 3000);
-//     records[i].endTime = new Date();
-//     if (!passed) records[i].errorMessage = '模拟执行失败: 元素未找到';
-//     await records[i].save();
-
-//     await Task.findByIdAndUpdate(taskId, {
-//       'progress.current': i + 1,
-//       'progress.completed': passed ? (task.progress.completed + 1) : task.progress.completed,
-//       'progress.failed': !passed ? (task.progress.failed + 1) : task.progress.failed,
-//     });
-//   }
-
-//   const task = await Task.findById(taskId);
-//   if (task && task.status === 'running') {
-//     task.status = task.progress.failed > 0 ? 'failed' : 'completed';
-//     await task.save();
-//   }
-// }
-
-// POST /api/tasks/:id/cancel
 
 async function simulateExecution(taskId: string) {
   const records = await TaskRecord.find({ taskId }).sort({ createdAt: 1 });

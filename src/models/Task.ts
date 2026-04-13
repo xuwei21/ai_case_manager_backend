@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface ITask extends Document {
   name: string;
   business: string;
+  platform: 'iOS' | 'Android';  // 新增
   testCases: mongoose.Types.ObjectId[];
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   progress: { total: number; completed: number; failed: number; current: number };
@@ -24,6 +25,7 @@ const TaskSchema = new Schema<ITask>(
       failed: { type: Number, default: 0 },
       current: { type: Number, default: 0 },
     },
+    platform: { type: String, enum: ['iOS', 'Android'], required: true },
     creator: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     creatorName: { type: String, required: true },
   },
