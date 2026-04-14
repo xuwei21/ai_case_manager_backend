@@ -33,7 +33,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     const filter: any = {};
 
     if (testCase) filter.testCase = { $regex: testCase, $options: 'i' };
-    if (platform) filter.platforms = platform;
+    if (platform) filter.platforms = { $regex: new RegExp(`^${platform}$`, 'i') };
     if (creator) filter.creatorName = { $regex: creator, $options: 'i' };
 
     // 获取用户有权限的业务列表（admin 时返回 null 表示无限制）
