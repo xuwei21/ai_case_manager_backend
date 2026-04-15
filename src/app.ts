@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import connectDB from './config/db';
 import config from './config';
+import { initMinio, ensureBucket } from './services/minio';
+import uploadRoutes from './routes/upload';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth';
 import businessRoutes from './routes/business';
@@ -35,6 +37,7 @@ app.use('/api/knowledges', knowledgeRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Error handler
 app.use(errorHandler);
@@ -42,6 +45,13 @@ app.use(errorHandler);
 // Start server
 const start = async () => {
   await connectDB();
+
+  try {
+    initMinio();
+    await ensureBucket();
+  } catch (err) {
+    console.error('MinIO init failed:', err);
+  }
   app.listen(config.port, () => {
     console.log(`Server running on port ${config.port}`);
   });
