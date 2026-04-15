@@ -33,8 +33,8 @@ export const uploadGeneralImageHandler = async (req: Request, res: Response) => 
         error: 'base64 required',
       });
     }
-    const { url, objectName } = await uploadGeneralImage(base64, prefix || 'cases');
-    res.json({ success: true, data: { url, objectName } });
+    const { url, objectName, md5 } = await uploadGeneralImage(base64, prefix || 'cases');
+    res.json({ success: true, data: { url, objectName, md5 } });
   } catch (err: any) {
     console.error(`Upload general image error: ${err.message}`);
     res.status(500).json({ success: false, error: err.message });

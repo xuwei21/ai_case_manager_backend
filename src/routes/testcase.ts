@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import TestCase from '../models/TestCase';
 import Business from '../models/Business';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { extractImageUrls, batchDecrementRefCount, diffAndDecrementImages } from '../services/imageRef';
 
 const router = Router();
 
@@ -194,6 +195,11 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     delete updateData.creator;      // 禁止更新 creator
     delete updateData.creatorName;  // 禁止更新 creatorName
 
+    // diff 新旧图片，对被移除的图片 refCount--
+    if (updateData.automation_steps) {
+      await diffAndDecrementImages(existing.automation_steps || [], updateData.automation_steps);
+    }
+
     // 使用 returnDocument: 'after' 替代 new: true
     const testCase = await TestCase.findByIdAndUpdate(
       req.params.id,
@@ -217,6 +223,11 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) =>
     }
     if (!await checkBusinessPermission(req.user, existing.business)) {
       return res.status(403).json({ success: false, message: '您没有权限删除该用例' });
+    }
+    // 删除前：对所有图片 refCount--
+    const imageUrls = extractImageUrls(existing.automation_steps || []);
+    if (imageUrls.length > 0) {
+      await batchDecrementRefCount(imageUrls);
     }
     await TestCase.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: '删除成功' });

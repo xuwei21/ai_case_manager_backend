@@ -1,6 +1,8 @@
 import { Client } from 'minio';
+import crypto from 'crypto';
 import sharp from 'sharp';
 import appConfig from '../config';
+import ImageRef from '../models/ImageRef';
 
 let minioClient: Client | null = null;
 
@@ -78,19 +80,34 @@ export async function compressScreenshot(base64Data: string): Promise<Buffer> {
 export async function uploadGeneralImage(
   base64Data: string,
   prefix: string = 'common'
-): Promise<{ url: string; objectName: string }> {
+): Promise<{ url: string; objectName: string; md5: string }> {
+  const compressedBuffer = await compressScreenshot(base64Data);
+  const md5 = crypto.createHash('md5').update(compressedBuffer).digest('hex');
+
+  // MD5 去重：已存在则 refCount++ 并直接返回
+  const existing = await ImageRef.findOneAndUpdate(
+    { md5 },
+    { $inc: { refCount: 1 } },
+    { new: true }
+  );
+  if (existing) {
+    console.log(`[MinIO] Image dedup hit, md5=${md5}, refCount=${existing.refCount}`);
+    return { url: existing.url, objectName: existing.objectName, md5 };
+  }
+
+  // 不存在，上传到 MinIO
   const client = initMinio();
   const bucket = appConfig.minio.bucket;
-  const compressedBuffer = await compressScreenshot(base64Data);
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  const objectName = `${prefix}/${timestamp}_${random}.jpg`;
+  const objectName = `${prefix}/${md5}.jpg`;
   await client.putObject(bucket, objectName, compressedBuffer, compressedBuffer.length, {
     'Content-Type': 'image/jpeg',
   });
   const publicUrl = `${appConfig.minio.publicBaseUrl}/${bucket}/${objectName}`;
-  console.log(`[MinIO] General image uploaded: ${publicUrl}`);
-  return { url: publicUrl, objectName };
+
+  // 创建引用记录
+  await ImageRef.create({ md5, objectName, url: publicUrl, refCount: 1 });
+  console.log(`[MinIO] General image uploaded: ${publicUrl}, md5=${md5}`);
+  return { url: publicUrl, objectName, md5 };
 }
 
 /**

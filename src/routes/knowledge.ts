@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import Knowledge from '../models/Knowledge';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { extractImageUrls, batchDecrementRefCount, diffAndDecrementImages } from '../services/imageRef';
 
 const router = Router();
 
@@ -75,8 +76,15 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 // PUT /api/knowledges/:id
 router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
+    const existing = await Knowledge.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: '知识库不存在' });
+
+    // diff 新旧图片，对被移除的图片 refCount--
+    if (req.body.steps) {
+      await diffAndDecrementImages(existing.steps || [], req.body.steps);
+    }
+
     const knowledge = await Knowledge.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!knowledge) return res.status(404).json({ success: false, message: '知识库不存在' });
     res.json({ success: true, data: knowledge });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -86,8 +94,16 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
 // DELETE /api/knowledges/:id
 router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const knowledge = await Knowledge.findByIdAndDelete(req.params.id);
-    if (!knowledge) return res.status(404).json({ success: false, message: '知识库不存在' });
+    const existing = await Knowledge.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: '知识库不存在' });
+
+    // 删除前：对所有图片 refCount--
+    const imageUrls = extractImageUrls(existing.steps || []);
+    if (imageUrls.length > 0) {
+      await batchDecrementRefCount(imageUrls);
+    }
+
+    await Knowledge.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: '删除成功' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
